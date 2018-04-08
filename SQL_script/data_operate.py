@@ -1,5 +1,7 @@
-from officer_process import Con_MySQL, Con_PostgreSQL, Con_Neo4j
 import time
+
+from officer_process import Con_MySQL, Con_PostgreSQL, Con_Neo4j
+
 
 def data_migration(rel_type=None, relation=None, relationstr=None):
     """
@@ -10,7 +12,7 @@ def data_migration(rel_type=None, relation=None, relationstr=None):
     :return: True
     """
     select_mysql = "SELECT * FROM demo.people_rel WHERE people_id='{0}' AND link_id='{1}' AND relation={2};"
-    insert_mysql = "INSERT INTO demo.people_rel(people_id,link_id,link_name,intimate,relation,relationstr) VALUES ('{0}','{1}','{2}','{3}',{4},'{5}');"
+    insert_mysql = "INSERT INTO demo.people_rel(people_id,link_id,people_name,link_name,intimate,relation,relationstr) VALUES ('{0}','{1}','{2}','{3}','{4}',{5},'{6}');"
     cur_mysql = mysql.cursor()
     # cur_postgre = postgre.cursor()
     max_value = float(graph.data(f"MATCH (:Person)-[r:{rel_type}]->(:Person) RETURN max(r.cost) as max;")[0]['max'])  # 最大代价值
@@ -23,7 +25,8 @@ def data_migration(rel_type=None, relation=None, relationstr=None):
         intimate = int(4*(float(result['r']['cost'])-min_value)/(max_value-min_value))+1  # 亲密度标准化
         cur_mysql.execute(select_mysql.format(result['a']['id'], result['b']['id'], relation))
         if not cur_mysql.fetchone():  # 如果记录不存在，则插入
-            finish_insert_sql = insert_mysql.format(result['a']['id'], result['b']['id'], result['b']['name'], intimate, relation, relationstr)
+            finish_insert_sql = insert_mysql.format(result['a']['id'], result['b']['id'], result['a']['name'],
+                                                    result['b']['name'], intimate, relation, relationstr)
             try:
                 cur_mysql.execute(finish_insert_sql)
                 mysql.commit()
@@ -44,7 +47,7 @@ if __name__ == '__main__':
     mysql = Con_MySQL(**option_mysql)
     postgre = Con_PostgreSQL(**option_postgre)
     graph = Con_Neo4j(**option_neo4j)
-    data_migration('workmate_with', 4, '同事')  # 导入同事关系
+    # data_migration('workmate_with', 4, '同事')  # 导入同事关系
     data_migration('schoolfellow_with', 7, '同学')  # 导入同学关系
     mysql.close()
     postgre.close()

@@ -1,6 +1,7 @@
-from py2neo import Graph, walk, types
 import time
+
 import pymysql
+from py2neo import Graph, walk, types
 
 '''
 这是一个功能包，包含数据处理模块，同乡、校友、同事关系搜索模块，最少关系路径、最小代价关系路径搜索模块。
