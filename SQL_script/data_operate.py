@@ -44,11 +44,11 @@ def data_migration(rel_type=None, relation=None, relationstr=None):
             mysql.commit()
             count += 1
             if count % 1000 == 0:
-                print(time_now(), 'All:', i, 'Insert:', count)
+                print(time_now(1), 'All:', i, 'Insert:', count)
             # print(time_now(), count, 'MySQL Insert Successful:', result['a']['id'], result['b']['id'], result['a']['name'], result['b']['name'], intimate, relation, relationstr)
         except:
             mysql.rollback()  # 插入失败，执行回滚操作
-            print('\t\ttime_now(), MySQL Insert Error:', result['a']['id'], result['b']['id'], result['a']['name'], result['b']['name'], intimate, relation, relationstr)
+            print('\t\ttime_now(1), MySQL Insert Error:', result['a']['id'], result['b']['id'], result['a']['name'], result['b']['name'], intimate, relation, relationstr)
     print(time_now(), 'All:', i, 'Insert:', count)
     cur_mysql.close()
     # cur_postgre.close()
