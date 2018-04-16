@@ -1,62 +1,21 @@
 import math
-import time
 
-import pymysql
-from py2neo import Graph, Relationship
+from py2neo import Relationship
 
-'''
-这是一个功能包，包含数据及关系处理模块，关系初始化创建模块，关系增量创建模块。
-'''
+from process import Con_Neo4j, Con_MySQL, period_cmp, time_now
+
+"""这是一个功能包，包含关系初始化创建模块、关系增量创建模块。"""
+
+
 # --------------------------------------------------------------------
 # 连接Neo4j和MySQL
-graph = Graph("http://opsrv.mapout.lan:7474", username="neo4j", password="Neo4j")  # 连接图数据库
-mysql = pymysql.connect(db="demo", user="root", passwd="root", host="opsrv.mapout.lan", port=3306,
-                        charset="utf8")  # 连接关系型数据库
+graph = Con_Neo4j(http="http://opsrv.mapout.lan:7474", username="neo4j", password="Neo4j")  # 连接图数据库
+mysql = Con_MySQL(database="demo", user="root", password="root", host="opsrv.mapout.lan", port=3306,
+                  charset="utf8")  # 连接关系型数据库
 
 
 # --------------------------------------------------------------------
-# 数据及关系处理
-def period_cmp(start_time1=None, end_time1=None, start_time2=None, end_time2=None):
-    """
-    函数功能：匹配时间段重叠情况。
-    时间格式统一为‘1995-4-16’。
-    :param start_time1: 开始时间1
-    :param end_time1: 结束时间1
-    :param start_time2: 开始时间2
-    :param end_time2: 结束时间2
-    :return: 重叠时间段及重叠年数（最小为1），或False表示不重叠
-    """
-    start_t1 = start_time1.split('-')
-    end_t1 = end_time1.split('-')
-    start_t2 = start_time2.split('-')
-    end_t2 = end_time2.split('-')
-    time_int = [365 * (int(start_t1[0]) - 1) + 30 * (int(start_t1[1]) - 1) + int(start_t1[2]),
-                365 * (int(end_t1[0]) - 1) + 30 * (int(end_t1[1]) - 1) + int(end_t1[2]),
-                365 * (int(start_t2[0]) - 1) + 30 * (int(start_t2[1]) - 1) + int(start_t2[2]),
-                365 * (int(end_t2[0]) - 1) + 30 * (int(end_t2[1]) - 1) + int(end_t2[2])]
-    overlap = abs(int(start_t1[0]) - int(start_t2[0]))  # 时间段重叠年数
-    if time_int[0] <= time_int[2] <= time_int[1] or time_int[0] <= time_int[3] <= time_int[1]:
-        return [start_time1 if time_int[0] >= time_int[2] else start_time2,
-                end_time1 if time_int[3] >= time_int[1] else end_time2,
-                1 if overlap <= 1 else overlap]  # 若存在时间重叠，则返回重叠时间段及重叠年数
-    else:
-        return None  # 若不存在时间重叠，则返回空
-
-
-def time_now(type_int=0):
-    """
-    函数功能：匹配时间段重叠情况。
-    时间格式统一为‘1995-4-16’。
-    :param type_int: 时间类型，0：'1995-4-16'，1：'Sun Apr 16 6:6:6 1995'
-    :return: 请求的格式化时间
-    """
-    if type_int == 0:
-        return str(time.localtime(time.time()).tm_year) + '-' + str(time.localtime(time.time()).tm_mon) + '-' \
-               + str(time.localtime(time.time()).tm_mday)
-    if type_int == 1:
-        return time.asctime(time.localtime(time.time()))
-
-
+# 初始化创建关系
 def create_relationship(node1=None, node2=None, rel_type=None, property=None, value=None):
     """
     函数功能：在图中创建关系，并可设置属性。
@@ -88,13 +47,11 @@ def create_relationship(node1=None, node2=None, rel_type=None, property=None, va
         return False
 
 
-# --------------------------------------------------------------------
-# 初始化创建三种关系
 def init_countrymen():
     """此方法暂时停用
     函数功能：在图中查找所有地点，将每个地点上的所有人物视为同乡，最后结果保存在关系型数据库中。
     在对应人物节点之间添加同乡关系并设置代价属性'cost'，其值为5/(3*type_int*2)。
-    type_int同乡关系类型（1-10）：中国节点上的同乡关系类型为1，地区节点每往下一级关系类型加1，最大为10。
+    type_int同乡关系类型(1-10)：中国节点上的同乡关系类型为1，地区节点每往下一级关系类型加1，最大为10。
     :return: True
     """
     my_cur = mysql.cursor()  # 获取关系型数据库游标
@@ -266,7 +223,7 @@ def init_workmate(max_level=1):
     函数功能：在图中查找所有机构节点（Institution），匹配连接到这一机构所有职位的工作经历，机构节点下的顶级职位视为同一级，最后结果保存在关系型数据库中。
     在图中查找所有职位节点（Position），匹配连接到这一机构所有职位的工作经历，机构节点下的顶级职位视为同一级，最后结果保存在关系型数据库中。
     在对应人物节点之间添加同事关系并设置代价属性'cost'，其值为(type_int+1)/(5*(1+ln(n)))，其中n为同事年数。
-    type_int同事关系类型[0,10]，n：表示x是y的第n层上级，0：表示x与y是同一级别。双向关系只保存一条记录。
+    type_int同事关系类型(0-10)，n：表示x是y的第n层上级，0：表示x与y是同一级别。双向关系只保存一条记录。
     :param max_level: 最大允许查找上下级的层数，缺省值为1
     :return: True
     """
@@ -464,7 +421,7 @@ def init_workmate(max_level=1):
 
 
 # --------------------------------------------------------------------
-# 增量创建三种关系
+# 增量创建关系
 def add_init(add_id_group=None):
     """
     函数功能：根据新增加的人物ID列表，对这些人的三种关系及其代价值进行增量计算（同乡关系已停用）。
@@ -638,7 +595,7 @@ def add_init(add_id_group=None):
 def create_one_countrymen(node=None):
     """此方法暂时停用
     函数功能：根据给定的人物节点node，在图中查找并建立他的同乡关系及其代价属性。
-    同乡关系类型（1-10）：中国节点上的同乡关系类型为1，地区节点每往下一级关系类型加1，最大为10。
+    同乡关系类型(1-10)：中国节点上的同乡关系类型为1，地区节点每往下一级关系类型加1，最大为10。
     :param node:给定的人物节点
     :return: 记录同乡关系的列表 countrymen_pair
     """
@@ -760,7 +717,7 @@ def create_one_schoolfellow(node=None):
 def create_one_workmate(node=None, max_level=1):
     """
     函数功能：根据给定的人物节点node，在图中查找并建立他的复杂同事关系。
-    同事关系类型[0,10]，n：表示x是y的第n层上级，0：表示x与y是同一级别。双向关系只保存一条记录。
+    同事关系类型(0-10)，n：表示x是y的第n层上级，0：表示x与y是同一级别。双向关系只保存一条记录。
     :param node:给定的人物节点
     :param max_level: 最大允许查找下级的层数，缺省值为1
     :return: 记录同学关系信息的列表 workmate_pair
@@ -873,3 +830,7 @@ def create_one_workmate(node=None, max_level=1):
                             create_relationship(graph, person['person'], node, 'workmate_with', 'cost',
                                                 (type_int + 1) / (5 * (1 + math.log(overlap[2], math.e))))  # 创建同事关系
     return workmate_pair  # 返回同事关系信息列表
+
+
+if __name__ == '__main__':
+    print('Hello World!')

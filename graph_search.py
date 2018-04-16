@@ -1,11 +1,22 @@
 from py2neo import walk, types
-from process import period_cmp, time_now
 
-def select_countrymen(person_id=None, graph=None):
+from process import Con_Neo4j, Con_MySQL, period_cmp, time_now
+
+"""这是一个功能包，包含关系搜索模块、路径搜索模块。"""
+
+# --------------------------------------------------------------------
+# 连接Neo4j和MySQL
+graph = Con_Neo4j(http="http://opsrv.mapout.lan:7474", username="neo4j", password="Neo4j")  # 连接图数据库
+mysql = Con_MySQL(database="demo", user="root", passwork="root", host="opsrv.mapout.lan", port=3306,
+                  charset="utf8")  # 连接关系型数据库
+
+
+# --------------------------------------------------------------------
+# 关系搜索
+def select_countrymen(person_id=None):
     """
     函数功能：在图中查找所有与目的人物具有同乡关系的人物ID。
     :param person_id: 目的人物ID
-    :param graph: 图数据库连接配置
     :return: 与目的人物具有同乡关系的人物信息列表 person_group[[人物ID，人物姓名]]
     """
     person_group = []  # 用来保存人物信息的列表
@@ -18,27 +29,27 @@ def select_countrymen(person_id=None, graph=None):
         person_group.append([node_y['person']['id'], node_y['person']['name']])
     return person_group  # 返回同乡人物信息列表
 
+
 def select_schoolfellow(person_id=None, graph=None):
     """
-    函数功能：在图中中查找所有与目的人物具有同学关系的人物ID。
+    函数功能：在图中中查找所有与目的人物具有校友关系的人物ID。
     :param person_id: 目的人物ID
-    :param graph: 图数据库连接配置
-    :return: 与目的人物具有同学关系的人物信息列表 person_group[人物ID，人物姓名]
+    :return: 与目的人物具有校友关系的人物信息列表 person_group[人物ID，人物姓名]
     """
     person_group = []  # 用来保存人物信息的列表
     # 查找目标人物节点
     node_x = graph.find_one(label='Person', property_key='id', property_value=person_id)
-    # 查找目标人物的所有同学节点
+    # 查找目标人物的所有校友节点
     get_schoolfellow = graph.data(f"MATCH (person:Person)-[:schoolfellow_with]-{node_x} RETURN DISTINCT person;")
-    for node_y in get_schoolfellow:  # 保存同学人物信息
+    for node_y in get_schoolfellow:  # 保存校友人物信息
         person_group.append([node_y['person']['id'], node_y['person']['name']])
-    return person_group  # 返回同学人物信息列表
+    return person_group  # 返回校友人物信息列表
 
-def select_workmate(person_id=None, graph=None):
+
+def select_workmate(person_id=None):
     """
     函数功能：在图中中查找所有与目的人物具有同事关系的人物ID。
     :param person_id: 目的人物ID
-    :param graph: 图数据库连接配置
     :return: 与目的人物具有同事关系的人物信息列表 person_group[[人物ID，人物姓名]]
     """
     person_group = []  # 用来保存人物信息的列表
@@ -50,13 +61,13 @@ def select_workmate(person_id=None, graph=None):
         person_group.append([node_y['person']['id'], node_y['person']['name']])
     return person_group  # 返回同事人物信息列表
 
-def select_schoolfellow_multi(person_id=None, school_id=None, graph=None):
+
+def select_schoolfellow_multi(person_id=None, school_id=None):
     """
-    函数功能：通过目标人物ID和目标学校ID，在图中查找该人物在该学校的多种同学关系。
-    返回值resume_pair_int中，同学关系类型(1,2,3,4,5)，1：表示同学院且同级，2：表示同学院不同级但时间有重叠，3：表示不同学院但同级，4：表示不同学院不同级但时间有重叠，5：表示同校的其他情况。
+    函数功能：通过目标人物ID和目标学校ID，在图中查找该人物在该学校的多种校友关系。
+    返回值resume_pair_int中，校友关系类型(1,2,3,4,5)，1：表示同学院且同级，2：表示同学院不同级但时间有重叠，3：表示不同学院但同级，4：表示不同学院不同级但时间有重叠，5：表示同校的其他情况。
     :param person_id: 目的人物ID
     :param school_id: 目的学校ID
-    :param graph: 图数据库连接配置
     :return: 记录相关工作经历信息的列表 education_pair_int[目标人物ID，相关人物ID，目标教育经历ID，相关教育经历ID，重叠开始时间， 重叠结束时间，关系类型]
     """
     # 目标人物节点
@@ -145,14 +156,14 @@ def select_schoolfellow_multi(person_id=None, school_id=None, graph=None):
                                            resume['r']['study_id'], overlap[0], overlap[1], 5])
     return education_pair_int  # 返回相关教育经历信息列表
 
-def select_workmate_multi(person_id=None, position_id=None, max_level=1, graph=None):
+
+def select_workmate_multi(person_id=None, position_id=None, max_level=1):
     """
     函数功能：通过目标人物ID和目标职位ID，在图中查找该人物的复杂同事关系。
-    返回值resume_pair_int中，同事关系类型[0,10]，n：表示x是y的第n层上级，0：表示x与y是同一级别。双向关系只保存一条记录。
+    返回值resume_pair_int中，同事关系类型(0-10)，n：表示x是y的第n层上级，0：表示x与y是同一级别。双向关系只保存一条记录。
     :param person_id: 目的人物ID
     :param position_id: 目的职位ID
     :param max_level: 最大允许查找上下级的层数，缺省值为1
-    :param graph: 图数据库连接配置
     :return: 记录相关工作经历信息的列表 resume_pair_int[目标人物ID，相关人物ID，目标工作经历ID，相关工作经历ID，重叠开始时间， 重叠结束时间，关系类型]
     """
     # 目标人物节点
@@ -218,13 +229,15 @@ def select_workmate_multi(person_id=None, position_id=None, max_level=1, graph=N
                                                     selece_resumeid, overlap[0], overlap[1], rel_level])
     return resume_pair_int  # 返回相关工作经历信息列表
 
-def allShortestPaths(graph=None, property1_value=None, property2_value=None,  limit=10, n_paths=10, node1_label='Person',
+
+# --------------------------------------------------------------------
+# 路径搜索
+def allShortestPaths(property1_value=None, property2_value=None, limit=10, n_paths=10, node1_label='Person',
                      property1='id', node2_label='Person', property2='id', rel_type=None):
     """
     函数功能：从图中查找两个目的节点之间的多条最短关系路径。
     返回值中relationship_group[i]表示node_group[i]与node_group[i+1]之间的关系，len(relationship_group)=len(node_group)-1，
     relationship_group中的‘关系方向’取值为1或0，代表'->'或'<-'。
-    :param graph: 图数据库连接
     :param property1_value: 节点1属性值
     :param property2_value: 节点2属性值
     :param limit: 路径的最大长度，缺省值为10
@@ -260,25 +273,24 @@ def allShortestPaths(graph=None, property1_value=None, property2_value=None,  li
         direction_group.append(directions)  # 保存当前路径的所有关系方向
     return node_group[0:n_paths], relationship_group[0:n_paths], direction_group[0:n_paths]
 
-def searchAndSave_allShortestPaths(graph=None, mysql=None, node1_id=None, node2_id=None, limit=10, n_paths=10,
-               rel_type_int=[1, 2, 3, 4, 5, 6, 7]):
+
+def searchAndSave_allShortestPaths(person1_id=None, person2_id=None, rel_type_int=[1, 2, 3, 4, 5, 6, 7], limit=10,
+                                   n_paths=10):
     """
     函数功能：从图中查找两个人物节点之间的多条最短关系路径，并将结果保存在MySQL数据库中。
-    保存的字符串中每个节点用‘，’隔开，若有多条路径则每条路径用‘；’隔开。
     关系类型[0,7]，0：其他关系类型，1：亲属关系，2：联系人关系，3：同事关系，4：同学关系，5：同乡关系，6：同行人关系，7：关联关系。
-    :param node1_id: 路径起始节点ID
-    :param node2_id: 路径终止节点ID
+    保存的字符串中每个节点用‘，’隔开，若有多条路径则每条路径用‘；’隔开。
+    :param person1_id: 路径起始节点ID
+    :param person2_id: 路径终止节点ID
+    :param rel_type_int: 允许搜索的关系类型整数列表，为None时表示允许搜索所有关系类型，缺省值为人物间的7种关系类型
     :param limit: 路径的最大长度，缺省值为10
     :param n_paths: 返回路径的最多条数，缺省值为10
-    :param rel_type_int: 允许搜索的关系类型整数列表，为None时表示允许搜索所有关系类型，缺省值为人物间的7种关系类型
-    :param graph: 图数据库连接
-    :param mysql: 关系型数据库连接配置
     :return: 查找失败时返回False，查找成功时返回[节点信息字符串paths_nodes_id,关系类型信息字符串paths_relationships,关系方向类型信息字符串paths_directions]。
     """
     my_cur = mysql.cursor()  # 获取关系型数据库游标
     # MySQL查询语句
-    select_sql = f"SELECT * FROM demo.paths WHERE start_node_id={node1_id} AND end_node_id={node2_id} " \
-                 f"OR start_node_id={node2_id} AND end_node_id={node1_id};"
+    select_sql = f"SELECT * FROM demo.paths WHERE start_node_id={person1_id} AND end_node_id={person2_id} " \
+                 f"OR start_node_id={person2_id} AND end_node_id={person1_id};"
     # MuSQL更新语句
     update_sql = "UPDATE demo.paths SET paths_nodes_id='{0}', paths_relationships='{1}', paths_directions='{2}' " \
                  "WHERE start_node_id={3} AND end_node_id={4} OR start_node_id={4} AND end_node_id={3};"
@@ -305,7 +317,7 @@ def searchAndSave_allShortestPaths(graph=None, mysql=None, node1_id=None, node2_
     else:
         rel_define = ''
     rel_define = rel_define[0:-1]
-    paths = allShortestPaths(graph, node1_id, node2_id, limit, n_paths, 'Person', 'id', 'Person', 'id', rel_define)
+    paths = allShortestPaths(person1_id, person2_id, limit, n_paths, 'Person', 'id', 'Person', 'id', rel_define)
     if not paths[2]:  # 如果路径关系方向类型列表为空则查找失败
         return False
     paths_nodes_id = ''  # 初始化节点信息串
@@ -347,33 +359,35 @@ def searchAndSave_allShortestPaths(graph=None, mysql=None, node1_id=None, node2_
             paths_directions += ';'
     if my_cur.execute(select_sql):
         try:
-            my_cur.execute(update_sql.format(paths_nodes_id, paths_relationships, paths_directions, node1_id, node2_id))
+            my_cur.execute(
+                update_sql.format(paths_nodes_id, paths_relationships, paths_directions, person1_id, person2_id))
             mysql.commit()
-            print(time_now(1), ':Paths-MySQL Update Successful:', node1_id, node2_id)
+            print(time_now(1), ':Paths-MySQL Update Successful:', person1_id, person2_id)
         except:
             mysql.rollback()  # 插入失败，执行回滚操作
-            print(time_now(1), ':Paths-MySQL Update Error:', node1_id, node2_id)
+            print(time_now(1), ':Paths-MySQL Update Error:', person1_id, person2_id)
     else:
         try:
-            my_cur.execute(insert_sql.format(node1_id, node2_id, paths_nodes_id, paths_relationships, paths_directions))
+            my_cur.execute(
+                insert_sql.format(person1_id, person2_id, paths_nodes_id, paths_relationships, paths_directions))
             mysql.commit()
-            print(time_now(1), ':Paths-MySQL Insert Successful:', node1_id, node2_id)
+            print(time_now(1), ':Paths-MySQL Insert Successful:', person1_id, person2_id)
         except:
             mysql.rollback()  # 插入失败，执行回滚操作
-            print(time_now(1), ':Paths-MySQL Insert Error:', node1_id, node2_id)
+            print(time_now(1), ':Paths-MySQL Insert Error:', person1_id, person2_id)
     my_cur.close()
     return paths_nodes_id, paths_relationships, paths_directions
 
-def dijkstraWithDefaultWeight(graph=None, person1_id=None, person2_id=None, rel_type_int=[1, 2, 3, 4, 5, 6, 7], default_weight=10):
+
+def dijkstraWithDefaultWeight(person1_id=None, person2_id=None, rel_type_int=[1, 2, 3, 4, 5, 6, 7], default_weight=10):
     """
     函数功能：从图中查找两个人物节点之间的最小代价关系路径。
     关系类型[0,7]，0：其他关系类型，1：亲属关系，2：联系人关系，3：同事关系，4：同学关系，5：同乡关系，6：同行人关系，7：关联关系。
     返回的字符串中每个节点用‘，’隔开，若有多条路径则每条路径用‘；’隔开。
-    :param graph: 图数据库连接
     :param person1_id: 节点1属性值
     :param person2_id: 节点2属性值
-    :param default_weight: 关系代价值缺省值为10
     :param rel_type_int: 允许搜索的关系类型整数列表，为None时表示允许搜索所有关系类型，缺省值为人物间的7种关系类型
+    :param default_weight: 关系代价值缺省值为10
     :return: 查找失败时返回False，查找成功时返回[节点信息字符串paths_nodes_id,关系类型信息字符串paths_relationships,关系方向类型信息字符串paths_directions,路径权值weight_group]。
     """
     if rel_type_int:
@@ -463,3 +477,7 @@ def dijkstraWithDefaultWeight(graph=None, person1_id=None, person2_id=None, rel_
     # print(paths_relationships)
     # print(paths_directions)
     return paths_nodes_id, paths_relationships, paths_directions, weight_group
+
+
+if __name__ == '__main__':
+    print('Hello World!')

@@ -1,10 +1,11 @@
 import time
 
-from officer_process import Con_MySQL, Con_PostgreSQL, Con_Neo4j
+from SQL_script.officer_process import Con_MySQL, Con_PostgreSQL, Con_Neo4j
+
 
 def time_now(type_int=0):
     """
-    函数功能：匹配时间段重叠情况。
+    函数功能：将当前时间调整为特定格式。
     时间格式统一为‘1995-4-16’。
     :param type_int: 时间类型，0：'1995-4-16'，1：'Sun Apr 16 6:6:6 1995'
     :return: 请求的格式化时间
@@ -14,6 +15,7 @@ def time_now(type_int=0):
                + str(time.localtime(time.time()).tm_mday)
     if type_int == 1:
         return time.asctime(time.localtime(time.time()))
+
 
 def data_migration(rel_type=None, relation=None, relationstr=None):
     """
@@ -53,6 +55,7 @@ def data_migration(rel_type=None, relation=None, relationstr=None):
     cur_mysql.close()
     # cur_postgre.close()
     return True
+
 
 if __name__ == '__main__':
     time1 = time.clock()

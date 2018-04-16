@@ -1,12 +1,18 @@
-from process import period_cmp, time_now
-import create_graph
 import math
 
-def init_countrymen_cost(graph=None):
+from graph_create import create_relationship
+from process import Con_Neo4j, Con_MySQL, time_now
+
+# 连接Neo4j和MySQL
+graph = Con_Neo4j(http="http://opsrv.mapout.lan:7474", username="neo4j", password="Neo4j")  # 连接图数据库
+mysql = Con_MySQL(database="demo", user="root", password="root", host="opsrv.mapout.lan", port=3306,
+                  charset="utf8")  # 连接关系型数据库
+
+
+def init_countrymen_cost():
     """
     函数功能：连接在同一'Location'节点上的两条'is_from'关系相当于一个同乡关系，在所有'is_from'关系中设置代价属性'cost'，其值为5/(3*type_int*2)。
     type_int同乡关系类型（1-10）：中国节点上的同乡关系类型为1，地区节点每往下一级关系类型加1，最大为10。
-    :param graph: 图数据库连接配置
     :return: True
     """
     # 从'中国'节点开始
@@ -25,12 +31,11 @@ def init_countrymen_cost(graph=None):
             break
     return True
 
-def init_schoolfellow_cost(graph=None, mysql=None):
+
+def init_schoolfellow_cost():
     """
     函数功能：从MySQL获取数据，在所有'schoolfellow_with'关系中设置代价属性'cost'，其值为5/(4*(1+ln(n))*(6-type_int))，其中n为同校年数。
     type_int同学关系类型(1,2,3,4,5)，1：表示同学院且同级，2：表示同学院不同级但时间有重叠，3：表示不同学院但同级，4：表示不同学院不同级但时间有重叠，5：表示同校的其他情况。
-    :param graph: 图数据库连接配置
-    :param mysql: 关系型数据库连接配置
     :return: True
     """
     print(time_now(1), f":************************ Schoolfellow ************************")
@@ -49,15 +54,14 @@ def init_schoolfellow_cost(graph=None, mysql=None):
             overlap = int(line[3][0:4]) - int(line[2][0:4])
             years = 1 if overlap <= 1 else overlap  # 同校年数
             cost = 5/(4*(1+math.log(years, math.e))*(6-float(line[4])))  # 设置代价属性'cost'
-            create_graph.create_relationship(graph, node1, node2, 'schoolfellow_with', 'cost', cost)  # 创建同学关系
+            create_relationship(node1, node2, 'schoolfellow_with', 'cost', cost)  # 创建同学关系
     return True
 
-def init_workmate_cost(graph=None, mysql=None):
+
+def init_workmate_cost():
     """
     函数功能：从MySQL获取数据，在所有'workmate_with'关系中设置代价属性'cost'，其值为(type_int+1)/(5*(1+ln(n)))，其中n为同校年数。
     type_int同事关系类型[0,10]，n：表示x是y的第n层上级，0：表示x与y是同一级别。
-    :param graph: 图数据库连接配置
-    :param mysql: 关系型数据库连接配置
     :return: True
     """
     print(time_now(1), f":************************ Workmate ************************")
@@ -76,5 +80,9 @@ def init_workmate_cost(graph=None, mysql=None):
             overlap = int(line[3][0:4]) - int(line[2][0:4])
             years = 1 if overlap <= 1 else overlap  # 同校年数
             cost = (float(line[4])+1)/(5*(1+math.log(years, math.e)))  # 设置代价属性'cost'
-            create_graph.create_relationship(graph, node1, node2, 'workmate_with', 'cost', cost)  # 创建同事关系
+            create_relationship(node1, node2, 'workmate_with', 'cost', cost)  # 创建同事关系
     return True
+
+
+if __name__ == '__main__':
+    print('Hello World!')
